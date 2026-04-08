@@ -1,0 +1,5 @@
+torch
+transformers
+streamlit
+pdfminer.six
+tqdm
