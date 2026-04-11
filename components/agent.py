@@ -1,6 +1,7 @@
 from components.answer_generator import generate_answer
+from components.dense import DenseRetriever
 from components.memory import AgentTrace, IterationTrace, Memory
-from components.orchestrator import DECISION_ANSWER, decide
+from components.orchestrator import DECISION_ANSWER, DECISION_SEARCH, decide
 from components.query_generator import generate_query
 from components.reformulator import reformulate_query
 from components.reranker import Reranker
@@ -9,26 +10,34 @@ from components.verifier import verify
 
 MAX_ITER = 6
 
+DEMO_CORPUS_DIR = "corpus/datasheets/text"
+DEMO_INDEX_DIR = "index/demo"
 
-def run(
+
+def run(question: str, index_path: str = DEMO_INDEX_DIR, corpus_path: str = DEMO_CORPUS_DIR) -> AgentTrace:
+    dense = DenseRetriever()
+    retriever = HybridRetriever(dense)
+    retriever.load_index(index_path, corpus_path)
+    reranker = Reranker()
+    return run_with_components(question, retriever, reranker)
+
+
+def run_with_components(
     question: str,
     retriever: HybridRetriever,
     reranker: Reranker,
 ) -> AgentTrace:
-    """Run the iterative retrieval agent and return a full trace."""
     memory = Memory()
-    iteration_traces = []
+    iterations = []
 
-    for iteration in range(MAX_ITER):
-        memory.iteration_counter = iteration
-
+    for i in range(MAX_ITER):
+        memory.iteration_counter = i
         action = decide(question, memory)
 
         if action == DECISION_ANSWER:
             answer, sources = generate_answer(question, memory)
-            # record the final answer iteration with no retrieval
-            iteration_traces.append(IterationTrace(
-                iteration=iteration,
+            iterations.append(IterationTrace(
+                iteration=i,
                 query="",
                 retrieved_chunks=[],
                 reranker_scores=[],
@@ -37,46 +46,37 @@ def run(
             ))
             return AgentTrace(
                 question=question,
-                iterations=iteration_traces,
+                iterations=iterations,
                 final_answer=answer,
                 sources=sources,
             )
 
-        # action is SEARCH
         query = generate_query(question, memory)
         memory.add_query(query)
 
-        chunks, reranker_scores, verification_result = _search_and_verify(
-            query, retriever, reranker
-        )
+        chunks, scores, passed = _search_and_verify(query, retriever, reranker)
 
-        if not verification_result:
-            # reformulate and retry once
-            reformulated_query = reformulate_query(query, chunks)
-            memory.add_query(reformulated_query)
-            chunks, reranker_scores, verification_result = _search_and_verify(
-                reformulated_query, retriever, reranker
-            )
+        if not passed:
+            reformulated = reformulate_query(query, chunks)
+            memory.add_query(reformulated)
+            chunks, scores, passed = _search_and_verify(reformulated, retriever, reranker)
 
-        verification_str = "PASS" if verification_result else "FAIL"
-
-        iteration_traces.append(IterationTrace(
-            iteration=iteration,
+        iterations.append(IterationTrace(
+            iteration=i,
             query=query,
             retrieved_chunks=chunks,
-            reranker_scores=reranker_scores,
-            verification=verification_str,
-            action=action,
+            reranker_scores=scores,
+            verification="PASS" if passed else "FAIL",
+            action=DECISION_SEARCH,
         ))
 
-        if verification_result:
+        if passed:
             memory.add_chunks(chunks)
 
-    # iteration cap reached — generate answer with whatever we have
     answer, sources = generate_answer(question, memory)
     return AgentTrace(
         question=question,
-        iterations=iteration_traces,
+        iterations=iterations,
         final_answer=answer,
         sources=sources,
     )
