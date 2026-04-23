@@ -26,6 +26,7 @@ def run_with_components(
     question: str,
     retriever: HybridRetriever,
     reranker: Reranker,
+    on_iteration=None,
 ) -> AgentTrace:
     memory = Memory()
     iterations = []
@@ -35,15 +36,19 @@ def run_with_components(
         action = decide(question, memory)
 
         if action == DECISION_ANSWER:
-            answer, sources = generate_answer(question, memory)
-            iterations.append(IterationTrace(
+            trace = IterationTrace(
                 iteration=i,
                 query="",
                 retrieved_chunks=[],
                 reranker_scores=[],
                 verification="PASS",
                 action=DECISION_ANSWER,
-            ))
+            )
+            iterations.append(trace)
+            if on_iteration:
+                on_iteration(trace)
+
+            answer, sources = generate_answer(question, memory)
             return AgentTrace(
                 question=question,
                 iterations=iterations,
@@ -61,14 +66,17 @@ def run_with_components(
             memory.add_query(reformulated)
             chunks, scores, passed = _search_and_verify(reformulated, retriever, reranker)
 
-        iterations.append(IterationTrace(
+        trace = IterationTrace(
             iteration=i,
             query=query,
             retrieved_chunks=chunks,
             reranker_scores=scores,
             verification="PASS" if passed else "FAIL",
             action=DECISION_SEARCH,
-        ))
+        )
+        iterations.append(trace)
+        if on_iteration:
+            on_iteration(trace)
 
         if passed:
             memory.add_chunks(chunks)

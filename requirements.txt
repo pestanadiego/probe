@@ -1,5 +1,7 @@
 torch
 transformers
 streamlit
+python-dotenv
 pdfminer.six
 tqdm
+openai

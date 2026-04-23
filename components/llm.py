@@ -1,40 +1,57 @@
 import os
 import json
 from typing import Any, Dict
+from openai import OpenAI
 
 import requests
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+# BitsAndBytesConfig removed: Not compatible with Apple Silicon
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_NAME = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+# Updated to use the GGUF quantized model and base tokenizer
+MODEL_NAME = "QuantFactory/Meta-Llama-3.1-8B-Instruct-GGUF"
+TOKENIZER_NAME = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+GGUF_FILE = "Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf"
+
 _instance = None
-
-# 1. Configure the 4-bit quantization settings
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16
-)
 
 class TransformersLLM:
     def __init__(self, model_name: str = MODEL_NAME):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        # 2. Load the model with the quantization config
+        # 1. Load the tokenizer from the official Meta repository
+        self.tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
+        
+        # 2. Load the 4-bit GGUF model optimized for Apple Silicon
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            quantization_config=bnb_config, # This is the key change!
-            device_map="auto",             # Automatically uses your RTX 3060
+            gguf_file=GGUF_FILE,
+            device_map="mps",  # Maps directly to Apple's Metal Performance Shaders
         )
         self.model.eval()
 
     def generate(self, prompt: str, max_new_tokens: int = 512) -> str:
-        # (Rest of your generation code remains the same)
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        # Llama 3.1 requires a specific chat template. 
+        # If the prompt isn't formatted this way, the model will output gibberish.
+        messages = [{"role": "user", "content": prompt}]
+        formatted_prompt = self.tokenizer.apply_chat_template(
+            messages, 
+            tokenize=False, 
+            add_generation_prompt=True
+        )
+
+        # Tokenize and explicitly send to the Apple Silicon GPU ("mps")
+        inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to("mps")
+        
         with torch.no_grad():
-            output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
-        return self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+            output_ids = self.model.generate(
+                **inputs, 
+                max_new_tokens=max_new_tokens,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+            
+        # Slice off the input prompt so the model doesn't repeat your question back to you
+        input_length = inputs.input_ids.shape[1]
+        return self.tokenizer.decode(output_ids[0][input_length:], skip_special_tokens=True)
 
 class TokenizerShim:
     """Minimal tokenizer-like shim exposing apply_chat_template used by the codebase.
@@ -95,6 +112,26 @@ class HTTPLLM:
             return resp.text.strip()
 
 
+class OpenRouterLLM:
+    def __init__(self, api_key: str, model: str = "meta-llama/llama-3.1-8b-instruct"):
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+        )
+        self.model = model
+        self.tokenizer = TokenizerShim()
+
+    def generate(self, prompt: str, max_new_tokens: int = 512) -> str:
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_new_tokens,
+            )
+        except Exception as e:
+            raise RuntimeError(f"OpenRouter request failed: {e}")
+        return response.choices[0].message.content.strip()
+
 
 def get_llm():
     """Return the singleton LLM instance, loading it on first call.
@@ -109,6 +146,7 @@ def get_llm():
         return _instance
 
     backend = os.environ.get("LLM_BACKEND", "transformers").lower()
+    print("BACKEND: ", backend)
     if backend == "transformers":
         _instance = TransformersLLM()
         return _instance
@@ -121,9 +159,17 @@ def get_llm():
         _instance = HTTPLLM(server_url=server_url, model=model)
         return _instance
 
+    if backend == "openrouter":
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            raise RuntimeError("LLM_BACKEND=openrouter requires OPENROUTER_API_KEY to be set")
+        model = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct")
+        _instance = OpenRouterLLM(api_key=api_key, model=model)
+        return _instance
+
     raise RuntimeError(f"Unknown LLM_BACKEND: {backend}")
 
 if __name__ == "__main__":
     llm = get_llm()
-    response = llm.generate("What is the capital of France?")
+    response = llm.generate("Explain the advantages of Apple's unified memory architecture.")
     print(response)
