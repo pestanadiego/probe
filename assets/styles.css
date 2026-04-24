@@ -1,0 +1,213 @@
+.probe-hero {
+    padding: 1.1rem 1.25rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: linear-gradient(135deg, rgba(14, 21, 38, 0.96), rgba(24, 34, 57, 0.92));
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+    margin-bottom: 1rem;
+}
+
+.probe-hero h1 {
+    margin: 0;
+    font-size: 2.05rem;
+    line-height: 1.1;
+    color: #f5f7fb;
+}
+
+.probe-hero p {
+    margin: 0.45rem 0 0;
+    color: rgba(245, 247, 251, 0.78);
+    font-size: 0.98rem;
+}
+
+.probe-panel {
+    padding: 0.9rem 0.95rem 0.85rem;
+    border-radius: 16px;
+    border: 1px solid rgba(90, 108, 147, 0.22);
+    background: rgba(12, 17, 28, 0.55);
+    backdrop-filter: blur(10px);
+    margin-bottom: 0.85rem;
+}
+
+.probe-panel h3 {
+    margin: 0 0 0.25rem;
+    color: #f3f6ff;
+    font-size: 1.02rem;
+}
+
+.probe-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(63, 99, 214, 0.18), rgba(63, 214, 170, 0.12));
+    border: 1px solid rgba(127, 163, 255, 0.18);
+    color: #eff4ff;
+    margin-bottom: 0.6rem;
+}
+
+.probe-status-icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+    line-height: 1;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.probe-status-icon.running {
+    box-shadow: 0 0 0 0 rgba(127, 163, 255, 0.5);
+    animation: probe-pulse 1.2s infinite;
+}
+
+.probe-status-copy {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.probe-status-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(234, 242, 255, 0.72);
+    margin-bottom: 0.15rem;
+}
+
+.probe-status-message {
+    font-size: 0.96rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.probe-status-meta {
+    margin-top: 0.12rem;
+    color: rgba(234, 242, 255, 0.72);
+    font-size: 0.84rem;
+}
+
+.probe-step-list {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.55rem;
+}
+
+.probe-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.42rem 0.55rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.probe-step-item.complete {
+    border-color: rgba(73, 194, 129, 0.22);
+    background: rgba(73, 194, 129, 0.07);
+}
+
+.probe-step-item.running {
+    border-color: rgba(127, 163, 255, 0.22);
+    background: rgba(127, 163, 255, 0.06);
+}
+
+.probe-step-item.error {
+    border-color: rgba(224, 90, 90, 0.22);
+    background: rgba(224, 90, 90, 0.06);
+}
+
+.probe-step-bullet {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.1rem;
+    border-radius: 999px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.probe-step-bullet.complete {
+    color: #37c871;
+    background: rgba(55, 200, 113, 0.12);
+}
+
+.probe-step-bullet.running {
+    color: #8fb1ff;
+    background: rgba(127, 163, 255, 0.12);
+    animation: probe-pulse 1.2s infinite;
+}
+
+.probe-step-bullet.error {
+    color: #ff8b8b;
+    background: rgba(224, 90, 90, 0.12);
+}
+
+.probe-step-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    color: #eef3ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.probe-step-meta {
+    color: rgba(234, 242, 255, 0.58);
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+}
+
+.probe-progress-track {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 2px;
+    margin-bottom: 0.75rem;
+}
+
+.probe-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3f63d6, #3fd6aa);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.probe-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: rgba(234, 242, 255, 0.65);
+    padding: 0.25rem 0;
+}
+
+.probe-spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(127, 163, 255, 0.25);
+    border-top-color: #7fa3ff;
+    border-radius: 50%;
+    animation: probe-spin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes probe-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes probe-pulse {
+    0%   { transform: scale(0.95); opacity: 0.7; }
+    50%  { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.7; }
+}
