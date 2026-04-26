@@ -22,11 +22,10 @@ class DenseRetriever:
             )
             with torch.no_grad():
                 output = self.model(**encoded)
-            # mean pooling over non-padding tokens
-            mask = encoded["attention_mask"].unsqueeze(-1).float()
+
+            mask = encoded["attention_mask"].unsqueeze(-1).float() # mean pooling over non-padding tokens
             embeddings = (output.last_hidden_state * mask).sum(dim=1) / mask.sum(dim=1)
-            # l2 normalize
-            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1) # l2 normalize
             all_embeddings.append(embeddings)
         return torch.cat(all_embeddings, dim=0)
 

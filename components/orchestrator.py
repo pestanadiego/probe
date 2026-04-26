@@ -1,13 +1,10 @@
 from components.llm import get_llm
 from components.memory import Memory
 
-# the two valid decisions the orchestrator can output
 DECISION_SEARCH = "SEARCH"
 DECISION_ANSWER = "ANSWER"
 
-
 def decide(question: str, memory: Memory) -> str:
-    """Decide whether to search for more information or answer with current memory."""
     llm = get_llm()
 
     context_summary = (
@@ -45,11 +42,9 @@ def decide(question: str, memory: Memory) -> str:
     )
     response = llm.generate(prompt, max_new_tokens=10)
 
-    # extract first token to be robust against extra output
     first_word = response.strip().split()[0].upper() if response.strip() else ""
 
     if first_word == DECISION_ANSWER:
         return DECISION_ANSWER
 
-    # default to SEARCH if parsing fails
-    return DECISION_SEARCH
+    return DECISION_SEARCH # if parsing fails

@@ -1,9 +1,7 @@
 from components.llm import get_llm
 from components.memory import Chunk, Memory
 
-
 def generate_answer(question: str, memory: Memory) -> tuple[str, list[Chunk]]:
-    """Generate a cited answer from the current memory context."""
     llm = get_llm()
 
     numbered_context = memory.context_text()
@@ -40,7 +38,6 @@ def generate_answer(question: str, memory: Memory) -> tuple[str, list[Chunk]]:
     cited_chunks = _extract_cited_chunks(answer, memory.retrieved_chunks)
 
     return answer, cited_chunks
-
 
 def _extract_cited_chunks(answer: str, chunks: list[Chunk]) -> list[Chunk]:
     """Return chunks whose citation numbers appear in the answer text."""

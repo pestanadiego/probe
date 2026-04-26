@@ -4,11 +4,8 @@ from components.memory import Chunk
 
 CHUNK_TOKENS = 256
 OVERLAP_TOKENS = 32
-# if more than this fraction of lines in a window are short, treat as a table chunk
-# (no overlap carried over, so we don't split a table row across two chunks)
-TABLE_LINE_FRACTION = 0.4
+TABLE_LINE_FRACTION = 0.4 # so we don't split a table row across two chunks
 TABLE_LINE_MAX_CHARS = 20
-
 
 def _is_table_window(lines: list[str]) -> bool:
     nonempty = [l for l in lines if l.strip()]
@@ -17,15 +14,7 @@ def _is_table_window(lines: list[str]) -> bool:
     short = sum(1 for l in nonempty if len(l.strip()) < TABLE_LINE_MAX_CHARS)
     return short / len(nonempty) > TABLE_LINE_FRACTION
 
-
 def chunk_file(file_path: str) -> list[Chunk]:
-    """
-    Read a plain-text datasheet and return a list of overlapping Chunk objects.
-    Table-like windows (>40% short lines) are emitted without overlap to avoid
-    splitting a table row across chunks.
-
-    Input: path to a .txt file
-    """
     source = os.path.basename(file_path)
     with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         lines = f.read().split("\n")
@@ -49,7 +38,7 @@ def chunk_file(file_path: str) -> list[Chunk]:
         ))
 
         if is_table:
-            # no overlap — start fresh after this table block
+            # no overlap, start fresh after this table block
             token_buf = token_buf[CHUNK_TOKENS:]
         else:
             token_buf = token_buf[CHUNK_TOKENS - OVERLAP_TOKENS:]
@@ -60,13 +49,7 @@ def chunk_file(file_path: str) -> list[Chunk]:
 
     return chunks
 
-
 def chunk_directory(directory: str) -> list[Chunk]:
-    """
-    Chunk all .txt files in a directory and return combined list of Chunks.
-
-    Input: path to directory containing .txt datasheet files
-    """
     all_chunks: list[Chunk] = []
     for filename in sorted(os.listdir(directory)):
         if filename.endswith(".txt"):

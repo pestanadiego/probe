@@ -15,7 +15,6 @@ MAX_ITER = 6
 DEMO_CORPUS_DIR = "corpus/datasheets/text"
 DEMO_INDEX_DIR = "index/demo"
 
-
 class Emitter:
     def __init__(self, callback: Callable[[dict], None] | None, iteration: int):
         self._callback = callback
@@ -30,14 +29,12 @@ class Emitter:
                 "state": state,
             })
 
-
 def run(question: str, index_path: str = DEMO_INDEX_DIR, corpus_path: str = DEMO_CORPUS_DIR) -> AgentTrace:
     dense = DenseRetriever()
     retriever = HybridRetriever(dense)
     retriever.load_index(index_path, corpus_path)
     reranker = Reranker()
     return run_with_components(question, retriever, reranker)
-
 
 def run_with_components(
     question: str,
@@ -106,7 +103,6 @@ def run_with_components(
         final_answer=answer,
         sources=sources,
     )
-
 
 def _search_and_verify(
     query: str,

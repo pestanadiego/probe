@@ -3,9 +3,7 @@ from components.memory import Chunk
 
 MAX_QUERY_WORDS = 10
 
-
 def reformulate_query(original_query: str, failed_chunks: list[Chunk]) -> str:
-    """Generate a fundamentally different query when the original returned poor results."""
     llm = get_llm()
 
     if failed_chunks:
@@ -48,7 +46,6 @@ def reformulate_query(original_query: str, failed_chunks: list[Chunk]) -> str:
     words = query.split()
 
     if not words:
-        # fall back to inverting keyword order of original
         return " ".join(reversed(original_query.split()[:MAX_QUERY_WORDS]))
 
     if len(words) > MAX_QUERY_WORDS:

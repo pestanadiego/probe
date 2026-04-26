@@ -1,12 +1,10 @@
 from dataclasses import dataclass, field
 
-
 @dataclass
 class Chunk:
     text: str
     source: str
     score: float
-
 
 @dataclass
 class IterationTrace:
@@ -17,14 +15,12 @@ class IterationTrace:
     verification: str  # "PASS" or "FAIL"
     action: str        # "SEARCH" or "ANSWER"
 
-
 @dataclass
 class AgentTrace:
     question: str
     iterations: list[IterationTrace]
     final_answer: str
     sources: list[Chunk]
-
 
 @dataclass
 class Memory:
@@ -34,7 +30,6 @@ class Memory:
     max_chunks: int = 10
 
     def add_chunks(self, chunks: list[Chunk]):
-        """Add new chunks, keeping only the top max_chunks by score."""
         self.retrieved_chunks.extend(chunks)
         self.retrieved_chunks.sort(key=lambda c: c.score, reverse=True)
         self.retrieved_chunks = self.retrieved_chunks[:self.max_chunks]
@@ -43,7 +38,6 @@ class Memory:
         self.search_history.append(query)
 
     def context_text(self) -> str:
-        """Return numbered context string for LLM prompts."""
         return "\n\n".join(
             f"[{i + 1}] (source: {c.source})\n{c.text}"
             for i, c in enumerate(self.retrieved_chunks)
