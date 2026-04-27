@@ -22,12 +22,9 @@ STAGE_LABELS = {
     "answer": "Generating answer",
 }
 
-SINGLE_HOP_QUESTIONS = [
+EXAMPLE_QUESTIONS = [
     "What is the maximum clock frequency of the ESP32?",
     "How many GPIO pins does the STM32F4 have?",
-]
-
-MULTI_HOP_QUESTIONS = [
     "Given an 80MHz APB clock on the ESP32, what register value do I write to get 400kHz on I2C fast mode?",
     "What is the maximum SPI clock speed on the ESP32, and does it change depending on which pins you use?",
     "On the STM32, if I want to use DMA with UART, which DMA channels are valid and what is the setup sequence?",
@@ -56,6 +53,10 @@ def set_question_input(question: str):
     st.session_state["question_input"] = question
 
 
+def clear_question_input():
+    st.session_state["question_input"] = ""
+
+
 def inject_styles():
     css_path = os.path.join(os.path.dirname(__file__), "assets", "styles.css")
     with open(css_path) as f:
@@ -68,99 +69,49 @@ def stage_label(stage: str) -> str:
 
 
 class RunCallbacks:
-    def __init__(self, activity_container, trace_container, active_question):
+    def __init__(self, status_container, trace_container, active_question):
         self.events = []
-        self._activity = activity_container
+        self._status = status_container
         self._trace = trace_container
         self._question = active_question
 
     def on_event(self, event):
         self.events.append(event)
-        render_live_activity(self._activity, self.events, self._question)
+        render_status(self._status, self.events)
 
     def on_iteration(self, trace):
         render_iteration(self._trace, trace)
 
 
-def render_live_activity(container, events, active_question):
-    latest_event = events[-1] if events else None
-    current_message = latest_event["message"] if latest_event else "Waiting for the agent to start"
-    current_stage = stage_label(latest_event["stage"]) if latest_event else "Idle"
-    current_state = latest_event["state"] if latest_event else "running"
-    current_iteration = latest_event["iteration"] + 1 if latest_event and latest_event["iteration"] is not None else None
-    total_iterations = len([e for e in events if e.get("stage") == "decision" and e.get("state") == "complete"])
-    progress_value = min(1.0, total_iterations / 6) if total_iterations else 0.02
-    running_state = current_state if current_state in {"running", "complete", "error"} else "running"
-    status_icon = "◉" if running_state == "running" else ("✓" if running_state == "complete" else "!")
+def render_status(container, events):
+    latest = events[-1] if events else None
+    stage = stage_label(latest["stage"]) if latest else "Initializing"
+    state = latest["state"] if latest else "running"
+    iteration = latest["iteration"] + 1 if latest and latest.get("iteration") is not None else None
+    completed = len([e for e in events if e.get("stage") == "decision" and e.get("state") == "complete"])
+    progress_pct = min(100, int(completed / 6 * 100)) if completed else 3
 
-    progress_pct = min(100, int(total_iterations / 6 * 100)) if total_iterations else 2
-    iteration_meta = f" · iteration {current_iteration}/6" if current_iteration else ""
+    state_class = state if state in {"running", "complete", "error"} else "running"
+    iter_text = f" — iteration {iteration} of 6" if iteration else ""
 
     container.empty()
-
     with container.container():
         st.markdown(
-            "<div class='probe-panel'>"
-            "<h3>Live status</h3>"
-            f"<div class='probe-progress-track'><div class='probe-progress-fill' style='width:{progress_pct}%'></div></div>"
-            "<div class='probe-status-row'>"
-            f"<div class='probe-status-icon {html.escape(running_state)}'>{html.escape(status_icon)}</div>"
-            "<div class='probe-status-copy'>"
-            f"<div class='probe-status-label'>Now running · {html.escape(current_stage)}</div>"
-            f"<div class='probe-status-message'>{html.escape(current_message)}</div>"
-            f"<div class='probe-status-meta'>{html.escape(current_state.upper())}{html.escape(iteration_meta)}</div>"
-            "</div>"
-            "</div>"
-            "</div>",
+            f"<div class='probe-progress-track'><div class='probe-progress-fill'></div></div>"
+            f"<div class='probe-status-line {html.escape(state_class)}'>"
+            f"<span class='probe-status-dot'></span>"
+            f"<span class='probe-status-stage'>{html.escape(stage)}</span>"
+            f"<span class='probe-status-iter'>{html.escape(iter_text)}</span>"
+            f"</div>",
             unsafe_allow_html=True,
         )
-
-        with st.expander("Steps", expanded=False):
-            st.caption(active_question)
-
-            step_events = []
-            step_index = {}
-            tracked_stages = {"decision", "query", "retrieval", "rerank", "verify", "reformulate", "answer"}
-            for event in events:
-                stage = event["stage"]
-                iteration = event.get("iteration")
-                key = (iteration, stage)
-                if stage in tracked_stages:
-                    if key not in step_index:
-                        step_index[key] = len(step_events)
-                        step_events.append(event)
-                    else:
-                        step_events[step_index[key]] = event
-
-            if step_events:
-                st.markdown("<div class='probe-step-list'>", unsafe_allow_html=True)
-                for event in step_events[-12:]:
-                    state_class = event["state"]
-                    iteration_text = (
-                        f"Iteration {event['iteration'] + 1}" if event.get("iteration") is not None else ""
-                    )
-                    bullet = "✓" if state_class == "complete" else ("◌" if state_class == "running" else "!")
-                    st.markdown(
-                        f"<div class='probe-step-item {html.escape(state_class)}'>"
-                        f"<div class='probe-step-bullet {html.escape(state_class)}'>{html.escape(bullet)}</div>"
-                        "<div style='min-width:0; flex:1 1 auto;'>"
-                        f"<div class='probe-step-text'>{html.escape(event['message'])}</div>"
-                        f"<div class='probe-step-meta'>{html.escape(stage_label(event['stage']))}"
-                        f"{f' · {html.escape(iteration_text)}' if iteration_text else ''}</div>"
-                        "</div>"
-                        "</div>",
-                        unsafe_allow_html=True,
-                    )
-                st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.caption("Steps will appear here as the agent runs.")
 
 
 def render_iteration(container, trace):
     if trace.action == "ANSWER":
         return
 
-    label = f"Iteration {trace.iteration + 1} — {trace.action}"
+    label = f"Iteration {trace.iteration + 1} ({trace.action})"
     if trace.query:
         label += f": {trace.query}"
 
@@ -172,10 +123,15 @@ def render_iteration(container, trace):
             st.markdown(f"**Reranker scores:** [{scores_str}]")
 
         verdict = trace.verification
-        if verdict == "PASS":
-            st.success(f"Verification: {verdict}")
-        else:
-            st.error(f"Verification: {verdict}")
+        verdict_class = "pass" if verdict == "PASS" else "fail"
+        verdict_mark = "✓" if verdict == "PASS" else "✕"
+        st.markdown(
+            f"<div class='probe-verdict {verdict_class}'>"
+            f"<span class='probe-verdict-mark'>{verdict_mark}</span>"
+            f"<span>Verification — {html.escape(verdict)}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
         if trace.retrieved_chunks:
             with st.expander(f"Top chunks ({len(trace.retrieved_chunks)})"):
@@ -190,85 +146,112 @@ def render_iteration(container, trace):
 def render_answer(container, trace):
     container.empty()
     with container.container():
-        st.subheader("Answer")
-        st.markdown(trace.final_answer)
+        st.markdown(
+            f"<div class='probe-answer'>"
+            f"<div class='probe-answer-body'>{trace.final_answer}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
         if trace.sources:
-            with st.expander(f"Sources ({len(trace.sources)})", expanded=False):
-                for i, source in enumerate(trace.sources):
-                    st.markdown(f"**[{i + 1}] {source.source}** — score: {source.score:.4f}")
-                    st.text(source.text[:500])
-                    if i < len(trace.sources) - 1:
-                        st.divider()
+            footnotes_html = "<div class='probe-footnotes'>"
+            footnotes_html += "<div class='probe-footnotes-label'>Sources</div>"
+            for i, source in enumerate(trace.sources):
+                snippet = html.escape(source.text[:280]).replace("\n", " ")
+                footnotes_html += (
+                    f"<div class='probe-footnote'>"
+                    f"<div class='probe-footnote-mark'>[{i + 1}]</div>"
+                    f"<div>"
+                    f"<span class='probe-footnote-source'>{html.escape(source.source)}</span>"
+                    f"<span class='probe-footnote-score'>· score {source.score:.4f}</span>"
+                    f"<div class='probe-footnote-text'>{snippet}…</div>"
+                    f"</div>"
+                    f"</div>"
+                )
+            footnotes_html += "</div>"
+            st.markdown(footnotes_html, unsafe_allow_html=True)
 
 
-def main():
-    st.set_page_config(page_title="PROBE", page_icon="~", layout="wide")
-    inject_styles()
-
+def render_pre_query():
     st.markdown(
-        "<div class='probe-hero'>"
-        "<h1>PROBE</h1>"
-        "<p>Iterative retrieval agent for multi-hop technical question answering</p>"
+        "<div class='probe-prequery'>"
+        "<h1 class='probe-masthead'>Probe</h1>"
+        "<p class='probe-tagline'>Iterative retrieval agent for multi-hop technical question answering</p>"
         "</div>",
         unsafe_allow_html=True,
     )
+
+    cols = st.columns([1, 5, 1])
+    with cols[1]:
+        st.text_input(
+            "search",
+            key="question_input",
+            label_visibility="collapsed",
+            placeholder="Ask a question…",
+        )
+
+        with st.expander("Example questions", expanded=False):
+            for q in EXAMPLE_QUESTIONS:
+                st.button(q, key=f"ex_{q[:24]}", on_click=set_question_input, args=(q,))
+
+def render_post_query(active_question, retriever, reranker):
+    st.button("← New search", key="new_search", on_click=clear_question_input)
+
+    st.markdown(
+        f"<h1 class='probe-headline'>{html.escape(active_question)}</h1>",
+        unsafe_allow_html=True,
+    )
+
+    status_placeholder = st.empty()
+    answer_placeholder = st.empty()
+
+    with answer_placeholder.container():
+        st.markdown(
+            "<div class='probe-loading'>"
+            "<div class='probe-spinner'></div>"
+            "<span>Reasoning over the corpus…</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div class='probe-trace-section'></div>", unsafe_allow_html=True)
+    with st.expander("Show trace", expanded=False):
+        trace_container = st.container()
+
+    callbacks = RunCallbacks(status_placeholder, trace_container, active_question)
+    render_status(status_placeholder, callbacks.events)
+
+    agent_trace = run_with_components(
+        active_question,
+        retriever,
+        reranker,
+        on_iteration=callbacks.on_iteration,
+        on_event=callbacks.on_event,
+    )
+
+    render_status(status_placeholder, callbacks.events)
+    render_answer(answer_placeholder, agent_trace)
+
+
+def main():
+    st.set_page_config(
+        page_title="Probe",
+        page_icon="🔎",
+        layout="centered",
+    )
+    inject_styles()
 
     load_llm()
     retriever = load_retriever()
     reranker = load_reranker()
 
-    question = st.text_input(
-        "Ask a question about embedded systems datasheets:",
-        key="question_input",
-    )
+    active_question = st.session_state.get("question_input", "").strip()
 
-    st.markdown("**Single-hop**")
-    cols = st.columns(len(SINGLE_HOP_QUESTIONS))
-    for col, q in zip(cols, SINGLE_HOP_QUESTIONS):
-        col.button(q, key=f"single_{q[:20]}", on_click=set_question_input, args=(q,))
-
-    st.markdown("**Multi-hop**")
-    cols = st.columns(len(MULTI_HOP_QUESTIONS))
-    for col, q in zip(cols, MULTI_HOP_QUESTIONS):
-        col.button(q, key=f"multi_{q[:20]}", on_click=set_question_input, args=(q,))
-
-    active_question = question
     if not active_question:
+        render_pre_query()
         return
 
-    st.markdown("---")
-
-    answer_placeholder = st.empty()
-    with answer_placeholder.container():
-        st.subheader("Answer")
-        st.markdown(
-            "<div class='probe-loading'>"
-            "<div class='probe-spinner'></div>"
-            "<span>Agent is reasoning over the corpus...</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
-    activity_container = st.empty()
-
-    with st.expander("Iteration Trace", expanded=False):
-        trace_container = st.container()
-
-    callbacks = RunCallbacks(activity_container, trace_container, active_question)
-    render_live_activity(activity_container, callbacks.events, active_question)
-
-    with st.spinner("Running PROBE agent..."):
-        agent_trace = run_with_components(
-            active_question,
-            retriever,
-            reranker,
-            on_iteration=callbacks.on_iteration,
-            on_event=callbacks.on_event,
-        )
-
-    render_live_activity(activity_container, callbacks.events, active_question)
-    render_answer(answer_placeholder, agent_trace)
+    render_post_query(active_question, retriever, reranker)
 
 
 if __name__ == "__main__":
