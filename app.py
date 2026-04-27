@@ -43,7 +43,7 @@ def load_llm():
 def load_retriever():
     dense = DenseRetriever()
     retriever = HybridRetriever(dense)
-    retriever.load_index(DEMO_CORPUS_DIR, DEMO_INDEX_DIR)
+    retriever.load_index(DEMO_INDEX_DIR, DEMO_CORPUS_DIR)
     return retriever
 
 
